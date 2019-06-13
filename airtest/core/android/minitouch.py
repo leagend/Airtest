@@ -222,8 +222,6 @@ class Minitouch(object):
         """
         from_x, from_y = tuple_from_xy
         to_x, to_y = tuple_to_xy
-        from_x, from_y = self.__transform_xy(from_x, from_y)
-        to_x, to_y = self.__transform_xy(to_x, to_y)
 
         ret = []
         interval = float(duration) / (steps + 1)
@@ -274,7 +272,6 @@ class Minitouch(object):
             None
 
         """
-
         swipe_events = [DownEvent(tuple_from_xy), SleepEvent(0.1)]
         swipe_events += self.__swipe_move(tuple_from_xy, tuple_to_xy, duration=duration, steps=steps)
         swipe_events.append(UpEvent())
@@ -385,6 +382,11 @@ class Minitouch(object):
 
         x1, y1 = x0 - w * percent / 2, y0 - h * percent / 2
         x2, y2 = x0 + w * percent / 2, y0 + h * percent / 2
+        # 对计算出的原始坐标进行实际滑动位置的转换
+        x0, y0 = self.__transform_xy(x0, y0)
+        x1, y1 = self.__transform_xy(x1, y1)
+        x2, y2 = self.__transform_xy(x2, y2)
+
         cmds = []
         if in_or_out == 'in':
             cmds.append("d 0 {:.0f} {:.0f} 50\nd 1 {:.0f} {:.0f} 50\nc\n".format(x1, y1, x2, y2))

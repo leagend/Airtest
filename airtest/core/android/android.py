@@ -8,7 +8,7 @@ from airtest import aircv
 from airtest.utils.logger import get_logger
 from airtest.core.device import Device
 from airtest.core.android.ime import YosemiteIme
-from airtest.core.android.constant import CAP_METHOD, TOUCH_METHOD, IME_METHOD, ORI_METHOD
+from airtest.core.android.constant import CAP_METHOD, TOUCH_METHOD, IME_METHOD, ORI_METHOD, SDK_VERISON_NEW
 from airtest.core.android.adb import ADB
 from airtest.core.android.minicap import Minicap
 from airtest.core.android.minitouch import Minitouch
@@ -93,13 +93,14 @@ class Android(Device):
 
     def check_app(self, package):
         """
-        Check is package exists on the device
+        Check if package exists on the device
 
         Args:
             package: package name
 
         Returns:
-            True or False whether the package exists on the device or not
+            AirtestError: if package is not found
+            True if package exists on the device
 
         """
         return self.adb.check_app(package)
@@ -158,19 +159,20 @@ class Android(Device):
         """
         return self.adb.clear_app(package)
 
-    def install_app(self, filepath, replace=False):
+    def install_app(self, filepath, replace=False, install_options=None):
         """
         Install the application on the device
 
         Args:
             filepath: full path to the `apk` file to be installed on the device
             replace: True or False to replace the existing application
+            install_options: list of options, default is []
 
         Returns:
             output from installation process
 
         """
-        return self.adb.install_app(filepath, replace=replace)
+        return self.adb.install_app(filepath, replace=replace, install_options=install_options)
 
     def install_multiple_app(self, filepath, replace=False):
         """
@@ -236,8 +238,8 @@ class Android(Device):
                 h, w = screen.shape[:2]  # cvshape是高度在前面!!!!
                 if w < h:  # 当前是横屏，但是图片是竖的，则旋转，针对sdk<=16的机器
                     screen = aircv.rotate(screen, self.display_info["orientation"] * 90, clockwise=False)
-            # adb 截图总是要根据orientation旋转
-            elif self.cap_method == CAP_METHOD.ADBCAP:
+            # adb 截图总是要根据orientation旋转，但是SDK版本大于等于25(Android7.1以后)无需额外旋转
+            elif self.cap_method == CAP_METHOD.ADBCAP and self.sdk_version <= SDK_VERISON_NEW:
                 screen = aircv.rotate(screen, self.display_info["orientation"] * 90, clockwise=False)
         if filename:
             aircv.imwrite(filename, screen)
@@ -280,6 +282,7 @@ class Android(Device):
         self.home()
         self.recorder.install_or_upgrade()  # 暂时Yosemite只用了ime
         self.adb.shell(['am', 'start', '-a', 'com.netease.nie.yosemite.ACTION_IDENTIFY'])
+        time.sleep(0.5)
         self.keyevent("HOME")
 
     def home(self):
@@ -292,22 +295,29 @@ class Android(Device):
         """
         self.keyevent("HOME")
 
-    def text(self, text, enter=True):
+    def text(self, text, enter=True, **kwargs):
         """
         Input text on the device
 
         Args:
             text: text to input
             enter: True or False whether to press `Enter` key
+            search: True or False whether to press `Search` key on IME after input
 
         Returns:
             None
 
         """
+        search = False if "search" not in kwargs else kwargs["search"]
+
         if self.ime_method == IME_METHOD.YOSEMITEIME:
             self.yosemite_ime.text(text)
         else:
             self.adb.shell(["input", "text", text])
+
+        if search:
+            self.yosemite_ime.code("3")
+            return
 
         # 游戏输入时，输入有效内容后点击Enter确认，如不需要，enter置为False即可。
         if enter:
